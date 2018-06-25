@@ -1,8 +1,8 @@
 package org.mainsoft.mapsme.mvp.view
 
 import com.arellomobile.mvp.MvpView
-import com.mapbox.api.directions.v5.models.DirectionsRoute
 import com.mapbox.mapboxsdk.geometry.LatLng
+import org.mainsoft.mapsme.api.model.DirectionResponse
 
 interface MapsView : MvpView {
 
@@ -10,5 +10,5 @@ interface MapsView : MvpView {
 
     fun addMarker(latLng: LatLng)
 
-    fun drawRoute(route: DirectionsRoute)
+    fun drawRoute(res: DirectionResponse)
 }

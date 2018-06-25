@@ -1,6 +1,7 @@
 package org.mainsoft.mapsme.mvp.presenter
 
 import android.util.Log
+import android.widget.Toast
 import com.arellomobile.mvp.InjectViewState
 import com.mapbox.api.directions.v5.models.DirectionsResponse
 import com.mapbox.geojson.Point
@@ -8,8 +9,12 @@ import com.mapbox.mapboxsdk.annotations.Marker
 import com.mapbox.mapboxsdk.geometry.LatLng
 import com.mapbox.services.android.navigation.v5.navigation.MapboxNavigation
 import com.mapbox.services.android.navigation.v5.navigation.NavigationRoute
+import io.reactivex.android.schedulers.AndroidSchedulers
+import io.reactivex.schedulers.Schedulers
 import org.mainsoft.mapsme.BaseApp
 import org.mainsoft.mapsme.R
+import org.mainsoft.mapsme.api.ApiService
+import org.mainsoft.mapsme.api.MapApi
 import org.mainsoft.mapsme.mvp.view.MapsView
 import org.mainsoft.mapsme.util.SettingsUtil
 import retrofit2.Call
@@ -30,39 +35,40 @@ class MapPresenter : BasePresenter<MapsView>() {
         viewState.addMarker(latLng)
     }
 
-    fun navigate(markers: ArrayList<Marker>) {
+    fun findRoute(markers: ArrayList<Marker>) {
         if (markers.size < 2) {
             return
         }
-        var origin = getPointFormMarker(markers[0])
-        var destination = getPointFormMarker(markers[1])
-        var points = getPointsFromMarkers(markers)
+        ApiService.getInstance().create(MapApi::class.java).findRoute(getCoordinates(markers),BaseApp.context.getString(R.string.mb_access_token))
+                .subscribeOn(Schedulers.io())
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe { res -> viewState.drawRoute(res)
+                }
 
-        var builder = NavigationRoute.builder(BaseApp.context)
-                .accessToken(BaseApp.context.getString(R.string.mb_access_token))
-                .origin(origin)
-                .destination(destination)
-        for (point in points) {
-            builder.addWaypoint(point)
+    }
+
+    fun findPlace(point: LatLng){
+        var position = "${point.longitude},${point.latitude}"
+        var type = "address"
+        ApiService.getInstance().create(MapApi::class.java).geocode(position, type, BaseApp.context.getString(R.string.mb_access_token))
+                .subscribeOn(Schedulers.io())
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe{res ->
+                    if(!res.features.isEmpty()){
+                        Toast.makeText(BaseApp.context, res.features.get(0).placeName, Toast.LENGTH_SHORT).show()
+                    }else{
+                        Toast.makeText(BaseApp.context, "Place not found!", Toast.LENGTH_SHORT).show()
+                    }
+                }
+    }
+
+    fun getCoordinates(markers: ArrayList<Marker>): String {
+        var coordinates = StringBuilder()
+        for (marker in markers) {
+            coordinates.append("${marker.position.longitude},${marker.position.latitude};")
         }
-        builder.build().getRoute(object : Callback<DirectionsResponse> {
-            override fun onFailure(call: Call<DirectionsResponse>?, t: Throwable?) {
-
-            }
-
-            override fun onResponse(call: Call<DirectionsResponse>?, response: Response<DirectionsResponse>) {
-                if (response.body() == null) {
-                    return
-                }
-                var routes = response.body()?.routes()
-                if(routes == null){
-                    Log.i("MapBox", "No routes")
-                    return
-                }
-                viewState.drawRoute(routes[0])
-            }
-        })
-
+        coordinates.deleteCharAt(coordinates.length-1)
+        return coordinates.toString()
     }
 
     fun getPointFormMarker(marker: Marker): Point {

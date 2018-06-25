@@ -2,30 +2,29 @@ package org.mainsoft.mapsme
 
 import android.app.Activity
 import android.content.Intent
+import android.graphics.Color
 import android.os.Bundle
 import android.view.Menu
 import android.view.MenuItem
 import butterknife.BindView
 import butterknife.ButterKnife
 import com.arellomobile.mvp.presenter.InjectPresenter
+import com.mapbox.core.constants.Constants.PRECISION_5
+import com.mapbox.geojson.LineString
 import com.mapbox.mapboxsdk.annotations.Marker
 import com.mapbox.mapboxsdk.annotations.MarkerOptions
+import com.mapbox.mapboxsdk.annotations.Polyline
+import com.mapbox.mapboxsdk.annotations.PolylineOptions
 import com.mapbox.mapboxsdk.camera.CameraPosition
 import com.mapbox.mapboxsdk.geometry.LatLng
 import com.mapbox.mapboxsdk.maps.MapView
 import com.mapbox.mapboxsdk.maps.MapboxMap
 import com.mapbox.mapboxsdk.maps.MapboxMap.OnMapClickListener
+import org.mainsoft.mapsme.api.model.DirectionResponse
 import org.mainsoft.mapsme.mvp.presenter.MapPresenter
 import org.mainsoft.mapsme.mvp.view.MapsView
 import org.mainsoft.mapsme.ui.activity.BaseActivity
 import org.mainsoft.mapsme.util.SettingsUtil
-import android.graphics.Color.parseColor
-import com.mapbox.api.directions.v5.models.DirectionsRoute
-import com.mapbox.mapboxsdk.annotations.PolylineOptions
-import com.mapbox.core.constants.Constants.PRECISION_5
-import com.mapbox.geojson.LineString
-
-
 
 class MainActivity : BaseActivity(), MapsView, OnMapClickListener {
 
@@ -38,6 +37,7 @@ class MainActivity : BaseActivity(), MapsView, OnMapClickListener {
     lateinit var mapBoxMap: MapboxMap
     val REQUEST_CODE = 666
     var markers : ArrayList<Marker> = arrayListOf()
+    var polyline: Polyline? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -88,28 +88,32 @@ class MainActivity : BaseActivity(), MapsView, OnMapClickListener {
 
     override fun addMarker(latLng: LatLng) {
         markers.add(mapBoxMap.addMarker(MarkerOptions().position(latLng).title("Marker ${markers.size + 1}")))
-        presenter.navigate(markers)
+        presenter.findPlace(latLng)
+        presenter.findRoute(markers)
     }
 
-    override fun drawRoute(route : DirectionsRoute) {
-        /*val lineString = LineString.fromPolyline(route.geometry()!!, PRECISION_5)
-        val positions = lineString.coordinates() ?: return
+    override fun drawRoute(result : DirectionResponse) {
+        if(result.trips.isEmpty()){
+            return
+        }
+        val lineString = LineString.fromPolyline(result.trips[0].geometry, PRECISION_5)
+        val positions = lineString.coordinates()
 
-        for (i in positions!!.indices) {
+        var points = arrayListOf<LatLng>()
+        for (i in positions.indices) {
             points.add(LatLng(
-                    positions!!.get(i).getLatitude(),
-                    positions!!.get(i).getLongitude()))
+                    positions.get(i).latitude(),
+                    positions.get(i).longitude()))
         }
 
         // Draw Points on MapView
         if (polyline != null) {
-            mapboxMap.removePolyline(polyline)
-            polyline = null
+            mapBoxMap.removePolyline(polyline!!)
         }
 
-        polyline = mapboxMap.addPolyline(PolylineOptions()
+        polyline = mapBoxMap.addPolyline(PolylineOptions()
                 .addAll(points)
                 .color(Color.parseColor("#ff00ff"))
-                .width(2f))*/
+                .width(2f))
     }
 }
